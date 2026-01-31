@@ -3,6 +3,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { fetchParcels } from "../services/api";
 import type { Parcel } from "../types/parcel";
+import { login, logout, isAuthenticated } from "../services/auth";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -10,6 +11,7 @@ export default function MapView() {
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const [parcels, setParcels] = useState<Parcel[]>([]);
+    const [isAuth] = useState(isAuthenticated());
 
     useEffect(() => {
         const loadData = async () => {
@@ -129,9 +131,53 @@ export default function MapView() {
     }, [parcels]);
 
     return (
-        <div
-            ref={mapContainerRef}
-            style={{ width: "100%", height: "100vh" }}
-        />
+        <div style={{ position: "relative", width: "100%", height: "100vh" }}>
+            <div
+                ref={mapContainerRef}
+                style={{ width: "100%", height: "100%" }}
+            />
+            <div style={{
+                position: "absolute",
+                top: "20px",
+                right: "20px",
+                zIndex: 1,
+                display: "flex",
+                gap: "10px"
+            }}>
+                {isAuth ? (
+                    <button
+                        onClick={() => logout()}
+                        style={{
+                            background: "#ef4444",
+                            color: "white",
+                            border: "none",
+                            padding: "10px 20px",
+                            borderRadius: "8px",
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                        }}
+                    >
+                        Logout
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => login()}
+                        style={{
+                            background: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            padding: "10px 20px",
+                            borderRadius: "8px",
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                        }}
+                    >
+                        Login
+                    </button>
+                )}
+            </div>
+        </div>
     );
 }
