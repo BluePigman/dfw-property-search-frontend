@@ -22,7 +22,21 @@ export default function FilterSidebar({ onFilterChange, initialFilters }: Filter
     };
 
     const handleApply = () => {
+        const isSame = JSON.stringify(filters) === JSON.stringify(initialFilters || {});
+        if (isSame) return;
+
         onFilterChange(filters);
+    };
+
+    const handleReset = () => {
+        const isEmpty = Object.values(filters).every(v => v === undefined);
+        const isAppliedEmpty = Object.values(initialFilters || {}).every(v => v === undefined);
+
+        if (isEmpty && isAppliedEmpty) return;
+
+        const emptyFilters = {};
+        setFilters(emptyFilters);
+        onFilterChange(emptyFilters);
     };
 
     return (
@@ -43,7 +57,25 @@ export default function FilterSidebar({ onFilterChange, initialFilters }: Filter
             gap: "20px",
             border: "1px solid rgba(255, 255, 255, 0.1)"
         }}>
-            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>Property Filters</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>Property Filters</h2>
+                <button
+                    onClick={handleReset}
+                    style={{
+                        background: "transparent",
+                        color: "#9ca3af",
+                        border: "none",
+                        fontSize: "0.875rem",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.color = "white"}
+                    onMouseOut={(e) => e.currentTarget.style.color = "#9ca3af"}
+                >
+                    Reset
+                </button>
+            </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div>
