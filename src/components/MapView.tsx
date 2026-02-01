@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { fetchParcels, fetchSavedFilters } from "../services/api";
+import { fetchParcels, fetchSavedFilters, exportParcels } from "../services/api";
 import type { ParcelFilters } from "../services/api";
 import type { Parcel as ParcelType } from "../types/parcel";
 import { login, logout, isAuthenticated } from "../services/auth";
@@ -13,7 +13,6 @@ export default function MapView() {
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const [parcels, setParcels] = useState<ParcelType[]>([]);
-    const [isAuth] = useState(isAuthenticated());
     const [filters, setFilters] = useState<ParcelFilters>({});
     const filtersRef = useRef<ParcelFilters>(filters);
 
@@ -188,6 +187,15 @@ export default function MapView() {
         }
     }, [parcels]);
 
+    const handleExport = async () => {
+        try {
+            await exportParcels(filters);
+        } catch (err) {
+            console.error("Error exporting parcels:", err);
+            alert("Failed to export parcels. Please try again.");
+        }
+    };
+
     return (
         <div style={{ position: "relative", width: "100%", height: "100vh" }}>
             <div
@@ -211,6 +219,23 @@ export default function MapView() {
                 display: "flex",
                 gap: "10px"
             }}>
+                <button
+                    onClick={handleExport}
+                    style={{
+                        background: "#10b981",
+                        color: "white",
+                        border: "none",
+                        padding: "10px 20px",
+                        borderRadius: "8px",
+                        fontWeight: "bold",
+                        cursor: "pointer",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = "#059669"}
+                    onMouseOut={(e) => e.currentTarget.style.background = "#10b981"}
+                >
+                    Export CSV
+                </button>
                 {isAuth ? (
                     <button
                         onClick={() => logout()}
