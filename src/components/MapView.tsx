@@ -14,18 +14,6 @@ export default function MapView() {
     const [isAuth] = useState(isAuthenticated());
 
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                const data = await fetchParcels();
-                setParcels(data);
-            } catch (err) {
-                console.error("Error fetching parcels:", err);
-            }
-        };
-        loadData();
-    }, []);
-
-    useEffect(() => {
         if (!mapContainerRef.current) return;
 
         const map = new mapboxgl.Map({
@@ -37,22 +25,60 @@ export default function MapView() {
 
         mapRef.current = map;
 
-        map.on("load", () => {
-            // Process parcels into GeoJSON features
-            // Flatten GeometryCollection so we can style Point and Polygon separately
-            const features = parcels.flatMap((parcel) =>
-                parcel.geometry.geometries.map((geom) => ({
-                    type: "Feature" as const,
-                    geometry: geom as any,
-                    properties: {
-                        id: parcel.sl_uuid,
-                        address: parcel.address,
-                        value: parcel.total_value,
-                        sqft: parcel.sqft,
-                    },
-                }))
-            );
+        const loadData = async () => {
+            try {
+                const bounds = map.getBounds();
+                if (!bounds) return;
+                const newData = await fetchParcels(bounds);
 
+                setParcels(prev => {
+                    const existingMap = new Map(prev.map(p => [p.sl_uuid, p]));
+                    const filteredNew = newData.filter(p => !existingMap.has(p.sl_uuid));
+                    const combined = [...prev, ...filteredNew];
+                    return combined.slice(-100);
+                });
+            } catch (err) {
+                console.error("Error fetching parcels:", err);
+            }
+        };
+
+        map.on("load", () => {
+            loadData();
+        });
+
+        map.on("moveend", () => {
+            loadData();
+        });
+
+        return () => {
+            map.remove();
+        };
+    }, []);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || !map.isStyleLoaded()) return;
+
+        const features = parcels.flatMap((parcel) =>
+            parcel.geometry.geometries.map((geom) => ({
+                type: "Feature" as const,
+                geometry: geom as any,
+                properties: {
+                    id: parcel.sl_uuid,
+                    address: parcel.address,
+                    value: parcel.total_value,
+                    sqft: parcel.sqft,
+                },
+            }))
+        );
+
+        const source = map.getSource("parcels") as mapboxgl.GeoJSONSource;
+        if (source) {
+            source.setData({
+                type: "FeatureCollection",
+                features: features,
+            });
+        } else {
             map.addSource("parcels", {
                 type: "geojson",
                 data: {
@@ -98,15 +124,48 @@ export default function MapView() {
                 filter: ["==", "$type", "Point"],
             });
 
-            // Add popups on click
             map.on("click", "parcels-fill", (e) => {
                 if (!e.features || e.features.length === 0) return;
                 const feature = e.features[0];
                 const props = feature.properties;
 
-                new mapboxgl.Popup()
+                new mapboxgl.Popup({
+                    offset: 15,
+                    className: 'custom-parcel-popup'
+                })
                     .setLngLat(e.lngLat)
                     .setHTML(`
+                        <style>
+                            .custom-parcel-popup .mapboxgl-popup-close-button {
+                                background-color: #3b82f6;
+                                color: white;
+                                border-radius: 0;
+                                width: 22px;
+                                height: 22px;
+                                padding: 0;
+                                line-height: 1;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                right: 0;
+                                top: 0;
+                                font-size: 22px;
+                                border: none;
+                                outline: none;
+                                box-shadow: none;
+                            }
+                            .custom-parcel-popup .mapboxgl-popup-close-button:focus {
+                                outline: none;
+                                box-shadow: none;
+                            }
+                            .custom-parcel-popup .mapboxgl-popup-close-button:hover {
+                                background-color: #ef4444;
+                                color: white;
+                            }
+                            .custom-parcel-popup .mapboxgl-popup-content {
+                                padding: 15px 10px 10px 10px;
+                            }
+                        </style>
                         <div style="color: #333; padding: 5px;">
                             <h3 style="margin: 0 0 5px 0;">${props?.address}</h3>
                             <p style="margin: 0;"><strong>Value:</strong> $${props?.value}</p>
@@ -116,18 +175,13 @@ export default function MapView() {
                     .addTo(map);
             });
 
-            // Change cursor on hover
             map.on("mouseenter", "parcels-fill", () => {
                 map.getCanvas().style.cursor = "pointer";
             });
             map.on("mouseleave", "parcels-fill", () => {
                 map.getCanvas().style.cursor = "";
             });
-        });
-
-        return () => {
-            map.remove();
-        };
+        }
     }, [parcels]);
 
     return (
