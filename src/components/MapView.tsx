@@ -244,14 +244,7 @@ export default function MapView() {
                 initialFilters={filters}
             />
 
-            <div style={{
-                position: "absolute",
-                top: "20px",
-                right: "20px",
-                zIndex: 1,
-                display: "flex",
-                gap: "10px"
-            }}>
+            <div className="top-buttons-container">
                 <button
                     onClick={handleExport}
                     style={{
