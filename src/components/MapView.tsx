@@ -50,10 +50,38 @@ export default function MapView() {
             const newData = await fetchParcels(bounds, filtersRef.current);
 
             setParcels(prev => {
+                const center = map.getCenter();
                 const existingMap = new Map(prev.map(p => [p.sl_uuid, p]));
                 const filteredNew = newData.filter(p => !existingMap.has(p.sl_uuid));
                 const combined = [...prev, ...filteredNew];
-                return combined.slice(-100);
+
+                // Helper to get a representative point for distance calculation
+                const getCoord = (p: ParcelType): [number, number] | null => {
+                    const firstGeom = p.geometry.geometries[0];
+                    if (!firstGeom) return null;
+                    if (firstGeom.type === "Point") return firstGeom.coordinates as [number, number];
+
+                    // For polygons, coordinates is often [ [ [lng, lat], ... ] ]
+                    const coords = firstGeom.coordinates as any;
+                    if (Array.isArray(coords) && Array.isArray(coords[0])) {
+                        if (Array.isArray(coords[0][0])) {
+                            return [coords[0][0][0], coords[0][0][1]];
+                        }
+                        return [coords[0][0], coords[0][1]];
+                    }
+                    return null;
+                };
+
+                return combined
+                    .map(p => {
+                        const coord = getCoord(p);
+                        if (!coord) return { p, d: Infinity };
+                        const d = Math.pow(coord[0] - center.lng, 2) + Math.pow(coord[1] - center.lat, 2);
+                        return { p, d };
+                    })
+                    .sort((a, b) => a.d - b.d)
+                    .slice(0, 1000)
+                    .map(item => item.p);
             });
         } catch (err) {
             console.error("Error fetching parcels:", err);
