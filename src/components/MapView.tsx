@@ -1,17 +1,60 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { fetchParcels } from "../services/api";
-import type { Parcel } from "../types/parcel";
+import { fetchParcels, fetchSavedFilters } from "../services/api";
+import type { ParcelFilters } from "../services/api";
+import type { Parcel as ParcelType } from "../types/parcel";
 import { login, logout, isAuthenticated } from "../services/auth";
+import FilterSidebar from "./FilterSidebar";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 export default function MapView() {
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<mapboxgl.Map | null>(null);
-    const [parcels, setParcels] = useState<Parcel[]>([]);
+    const [parcels, setParcels] = useState<ParcelType[]>([]);
     const [isAuth] = useState(isAuthenticated());
+    const [filters, setFilters] = useState<ParcelFilters>({});
+    const filtersRef = useRef<ParcelFilters>(filters);
+
+    // Sync ref with state
+    useEffect(() => {
+        filtersRef.current = filters;
+    }, [filters]);
+
+    useEffect(() => {
+        if (isAuth) {
+            const loadFilters = async () => {
+                try {
+                    const saved = await fetchSavedFilters();
+                    setFilters(saved);
+                } catch (err) {
+                    console.error("Error loading filters:", err);
+                }
+            };
+            loadFilters();
+        }
+    }, [isAuth]);
+
+    const loadData = async () => {
+        const map = mapRef.current;
+        if (!map) return;
+
+        try {
+            const bounds = map.getBounds();
+            if (!bounds) return;
+            const newData = await fetchParcels(bounds, filtersRef.current);
+
+            setParcels(prev => {
+                const existingMap = new Map(prev.map(p => [p.sl_uuid, p]));
+                const filteredNew = newData.filter(p => !existingMap.has(p.sl_uuid));
+                const combined = [...prev, ...filteredNew];
+                return combined.slice(-100);
+            });
+        } catch (err) {
+            console.error("Error fetching parcels:", err);
+        }
+    };
 
     useEffect(() => {
         if (!mapContainerRef.current) return;
@@ -25,23 +68,6 @@ export default function MapView() {
 
         mapRef.current = map;
 
-        const loadData = async () => {
-            try {
-                const bounds = map.getBounds();
-                if (!bounds) return;
-                const newData = await fetchParcels(bounds);
-
-                setParcels(prev => {
-                    const existingMap = new Map(prev.map(p => [p.sl_uuid, p]));
-                    const filteredNew = newData.filter(p => !existingMap.has(p.sl_uuid));
-                    const combined = [...prev, ...filteredNew];
-                    return combined.slice(-100);
-                });
-            } catch (err) {
-                console.error("Error fetching parcels:", err);
-            }
-        };
-
         map.on("load", () => {
             loadData();
         });
@@ -54,6 +80,13 @@ export default function MapView() {
             map.remove();
         };
     }, []);
+
+    // Re-trigger load when filters change
+    useEffect(() => {
+        if (mapRef.current && mapRef.current.isStyleLoaded()) {
+            loadData();
+        }
+    }, [filters]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -135,37 +168,6 @@ export default function MapView() {
                 })
                     .setLngLat(e.lngLat)
                     .setHTML(`
-                        <style>
-                            .custom-parcel-popup .mapboxgl-popup-close-button {
-                                background-color: #3b82f6;
-                                color: white;
-                                border-radius: 0;
-                                width: 22px;
-                                height: 22px;
-                                padding: 0;
-                                line-height: 1;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                right: 0;
-                                top: 0;
-                                font-size: 22px;
-                                border: none;
-                                outline: none;
-                                box-shadow: none;
-                            }
-                            .custom-parcel-popup .mapboxgl-popup-close-button:focus {
-                                outline: none;
-                                box-shadow: none;
-                            }
-                            .custom-parcel-popup .mapboxgl-popup-close-button:hover {
-                                background-color: #ef4444;
-                                color: white;
-                            }
-                            .custom-parcel-popup .mapboxgl-popup-content {
-                                padding: 15px 10px 10px 10px;
-                            }
-                        </style>
                         <div style="color: #333; padding: 5px;">
                             <h3 style="margin: 0 0 5px 0;">${props?.address}</h3>
                             <p style="margin: 0;"><strong>Value:</strong> $${props?.value}</p>
@@ -190,6 +192,15 @@ export default function MapView() {
                 ref={mapContainerRef}
                 style={{ width: "100%", height: "100%" }}
             />
+
+            <FilterSidebar
+                onFilterChange={(newFilters) => {
+                    setParcels([]); // Clear map when filters change
+                    setFilters(newFilters);
+                }}
+                initialFilters={filters}
+            />
+
             <div style={{
                 position: "absolute",
                 top: "20px",
