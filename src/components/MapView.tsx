@@ -13,6 +13,11 @@ export default function MapView() {
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const [parcels, setParcels] = useState<ParcelType[]>([]);
+    const [isAuth, setIsAuth] = useState(false);
+
+    useEffect(() => {
+        setIsAuth(isAuthenticated());
+    }, []);
     const [filters, setFilters] = useState<ParcelFilters>({});
     const filtersRef = useRef<ParcelFilters>(filters);
 
