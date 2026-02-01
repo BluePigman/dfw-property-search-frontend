@@ -99,6 +99,7 @@ export default function MapView() {
                 properties: {
                     id: parcel.sl_uuid,
                     address: parcel.address,
+                    county: parcel.county,
                     value: parcel.total_value,
                     sqft: parcel.sqft,
                 },
@@ -169,7 +170,8 @@ export default function MapView() {
                     .setLngLat(e.lngLat)
                     .setHTML(`
                         <div style="color: #333; padding: 5px;">
-                            <h3 style="margin: 0 0 5px 0;">${props?.address}</h3>
+                            <h3 style="margin: 0 0 2px 0;">${props?.address}</h3>
+                            <p style="margin: 0 0 8px 0; color: #666; text-transform: capitalize;">${props?.county} County</p>
                             <p style="margin: 0;"><strong>Value:</strong> $${props?.value}</p>
                             ${props?.sqft ? `<p style="margin: 0;"><strong>Sqft:</strong> ${props.sqft}</p>` : ''}
                         </div>
