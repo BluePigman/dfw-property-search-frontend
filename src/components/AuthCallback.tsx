@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function AuthCallback() {
     const navigate = useNavigate();
-    const [status, setStatus] = useState("Exchanging code for tokens...");
+    const [status, setStatus] = useState("Loading...");
     const [error, setError] = useState<string | null>(null);
     const isProcessing = useRef(false);
 
